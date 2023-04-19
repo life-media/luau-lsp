@@ -493,16 +493,26 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                     auto currentDirectory = fileResolver.getRequireBasePath(moduleName).append(contentsString);
 
                     Luau::AutocompleteEntryMap result;
-                    for (const auto& dir_entry : std::filesystem::directory_iterator(currentDirectory))
+                    std::map<std::string, int> depthMap; // Map to store the depth of each entry
+                    for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(currentDirectory))
                     {
                         if (dir_entry.is_regular_file() || dir_entry.is_directory())
                         {
-                            std::string fileName = dir_entry.path().filename().generic_string();
-                            Luau::AutocompleteEntry entry{
-                                Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
-                            entry.tags.push_back(dir_entry.is_directory() ? "Directory" : "File");
+                            int depth = std::distance(std::filesystem::path(currentDirectory).begin(),
+                                  dir_entry.path().parent_path().begin());
 
-                            result.insert_or_assign(fileName, entry);
+                            std::string fileName = dir_entry.path().filename().generic_string();
+                            auto it = depthMap.find(fileName);
+                            
+                            if (it == depthMap.end() || depth < it->second)
+                            {
+                                Luau::AutocompleteEntry entry{
+                                    Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                entry.tags.push_back(dir_entry.is_directory() ? "Directory" : "File");
+
+                                result.insert_or_assign(fileName, entry);
+                                depthMap[fileName] = depth;
+                            }
                         }
                     }
 
