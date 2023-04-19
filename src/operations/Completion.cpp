@@ -493,12 +493,12 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                     auto currentDirectory = fileResolver.getRequireBasePath(moduleName).append(contentsString);
 
                     Luau::AutocompleteEntryMap result;
-                    std::map<std::string, int> depthMap; // Map to store the depth of each entry
+                    std::map<std::string, std::ptrdiff_t> depthMap; // Map to store the depth of each entry
                     for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(currentDirectory))
                     {
                         if (dir_entry.is_regular_file() || dir_entry.is_directory())
                         {
-                            int depth = std::distance(std::filesystem::path(currentDirectory).begin(),
+                            std::ptrdiff_t depth = std::distance(std::filesystem::path(currentDirectory).begin(),
                                   dir_entry.path().parent_path().begin());
 
                             std::string fileName = dir_entry.path().filename().generic_string();
