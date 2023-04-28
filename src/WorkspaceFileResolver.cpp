@@ -187,7 +187,7 @@ std::filesystem::path WorkspaceFileResolver::getRequireBasePath(std::optional<Lu
     switch (config.require.mode)
     {
     case RequireModeConfig::RelativeToWorkspaceRoot:
-        return rootUri.fsPath();
+        return rootUri.fsPath() / "src"; // Appending src to the workspace root!
     case RequireModeConfig::RelativeToFile:
     {
         if (fileModuleName.has_value())
@@ -222,6 +222,27 @@ std::optional<Luau::ModuleInfo> WorkspaceFileResolver::resolveModule(const Luau:
         {
             // fall back to .lua if a module with .luau doesn't exist
             filePath = std::filesystem::weakly_canonical(basePath / (requiredString + ".lua"), ec);
+        }
+        // If file not found in direct path, search recursively
+        if (ec.value() != 0 || !std::filesystem::exists(filePath))
+        {
+            bool found = false;
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(basePath))
+            {
+                if (entry.path().filename() == (requiredString + ".lua") || entry.path().filename() == (requiredString + ".luau"))
+                {
+                    filePath = entry.path();
+                    found = true;
+                    break;
+                }
+            }
+
+            // If file not found after recursive search, update error code and handle it
+            if (!found)
+            {
+                ec = std::make_error_code(std::errc::no_such_file_or_directory);
+                // Handle the file not found case here
+            }
         }
 
         // URI-ify the file path so that its normalised (in particular, the drive letter)

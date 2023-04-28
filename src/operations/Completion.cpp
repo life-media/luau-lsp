@@ -528,10 +528,44 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
 
                     auto currentDirectory = fileResolver.getRequireBasePath(moduleName).append(contentsString);
 
+                    std::filesystem::path pathObj(contentsString);
+
+                    bool contentsHasParent = pathObj.has_parent_path();
+                    
                     Luau::AutocompleteEntryMap result;
+                    std::map<std::string, std::ptrdiff_t> depthMap; // Map to store the depth of each entry
+                    if (!contentsHasParent){
+                        for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(currentDirectory))
+                        {
+                            if (dir_entry.is_regular_file())
+                            {
+                                auto relativePath = std::filesystem::path(dir_entry.path()).lexically_relative(currentDirectory);
+                                std::ptrdiff_t depth = std::count_if(relativePath.begin(), relativePath.end(), [](const std::filesystem::path& p) {
+                                    return p.generic_string() == std::string(1, std::filesystem::path::preferred_separator);
+                                });
+
+                                std::string fileName = dir_entry.path().filename().generic_string();
+                                std::string depthMapKey = dir_entry.path().stem().generic_string(); // "file.lua" - > "file"
+                                auto it = depthMap.find(depthMapKey);
+                                
+                                if (it == depthMap.end() || depth < it->second)
+                                {
+                                    Luau::AutocompleteEntry entry{
+                                        Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                    entry.tags.push_back(dir_entry.is_directory() ? "Directory" : "File");
+
+                                    result.insert_or_assign(fileName, entry);
+                                    depthMap[depthMapKey] = depth;
+                                }
+                            }
+                        }
+                    }
+                    
+
+
                     for (const auto& dir_entry : std::filesystem::directory_iterator(currentDirectory))
                     {
-                        if (dir_entry.is_regular_file() || dir_entry.is_directory())
+                        if ( (contentsHasParent && dir_entry.is_regular_file()) || dir_entry.is_directory())
                         {
                             std::string fileName = dir_entry.path().filename().generic_string();
                             Luau::AutocompleteEntry entry{
@@ -646,7 +680,11 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
             item.kind = lsp::CompletionItemKind::File;
             // We shouldn't include the extension when inserting
             std::string insertText = name;
-            insertText.erase(insertText.find_last_of('.'));
+            std::size_t dotPos = insertText.find_last_of('.');
+
+            if (dotPos != std::string::npos) {
+                insertText.erase(dotPos);
+            }
             item.insertText = insertText;
         }
         else if (std::find(entry.tags.begin(), entry.tags.end(), "Directory") != entry.tags.end())
