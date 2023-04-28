@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/JohnnyMorganz/luau-lsp/issues"
   },
-  "version": "1.18.1",
+  "version": "1.19.2",
   "engines": {
     "vscode": "^1.67.0"
   },
@@ -102,12 +102,6 @@
         },
         "luau-lsp.autocompleteEnd": {
           "markdownDescription": "Automatically insert an `end` when opening a block",
-          "type": "boolean",
-          "default": false,
-          "scope": "resource"
-        },
-        "luau-lsp.completion.suggestImports": {
-          "markdownDescription": "Suggest automatic imports in completion items",
           "type": "boolean",
           "default": false,
           "scope": "resource"
@@ -306,6 +300,54 @@
           "default": true,
           "scope": "resource"
         },
+        "luau-lsp.completion.suggestImports": {
+          "markdownDescription": "Suggest automatic imports in completion items",
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDeprecationMessage": "**Deprecated**: Please use `#luau-lsp.completion.imports.enabled#` instead.",
+          "deprecationMessage": "Deprecated: Please use luau-lsp.completion.imports.enabled instead."
+        },
+        "luau-lsp.completion.imports.enabled": {
+          "markdownDescription": "Suggest automatic imports in completion items",
+          "type": "boolean",
+          "default": false,
+          "scope": "resource"
+        },
+        "luau-lsp.completion.imports.suggestServices": {
+          "markdownDescription": "Whether GetService completions are suggested in autocomplete",
+          "type": "boolean",
+          "default": true,
+          "scope": "resource"
+        },
+        "luau-lsp.completion.imports.suggestRequires": {
+          "markdownDescription": "Whether module requires are suggested in autocomplete",
+          "type": "boolean",
+          "default": true,
+          "scope": "resource"
+        },
+        "luau-lsp.completion.imports.requireStyle": {
+          "markdownDescription": "The style of requires when autocompleted",
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "alwaysRelative",
+            "alwaysAbsolute"
+          ],
+          "enumDescriptions": [
+            "Automatically compute the style of require to use based on heuristics",
+            "Always require the module relative to the current file",
+            "Always require the module absolute based on root"
+          ],
+          "scope": "resource"
+        },
+        "luau-lsp.completion.imports.separateGroupsWithLine": {
+          "markdownDescription": "Whether services and requires should be separated by an empty line",
+          "type": "boolean",
+          "default": false,
+          "scope": "resource"
+        },
         "luau-lsp.signatureHelp.enabled": {
           "markdownDescription": "Enable signature help",
           "type": "boolean",
@@ -337,6 +379,12 @@
             "String requires are interpreted relative to the root of the workspace",
             "String requires are interpreted relative to the current file"
           ]
+        },
+        "luau-lsp.index.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Whether all files in a workspace should be indexed into memory. If disabled, only limited support is available for features such as 'Find All References' and 'Rename'"
         }
       }
     }
