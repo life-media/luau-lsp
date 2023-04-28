@@ -105,6 +105,31 @@ bool WorkspaceFolder::isDefinitionFile(const std::filesystem::path& path, const 
     return false;
 }
 
+void WorkspaceFolder::indexFiles(const ClientConfiguration& config)
+{
+    if (!config.index.enabled)
+        return;
+
+    if (isNullWorkspace())
+        return;
+
+    for (std::filesystem::recursive_directory_iterator next(rootUri.fsPath()), end; next != end; ++next)
+    {
+        if (next->is_regular_file() && next->path().has_extension() && !isDefinitionFile(next->path(), config))
+        {
+            auto ext = next->path().extension();
+            if (ext == ".lua" || ext == ".luau")
+            {
+                auto moduleName = fileResolver.getModuleName(Uri::file(next->path()));
+                // We use autocomplete because its in strict mode, and this is useful for Find All References
+                frontend.check(moduleName, Luau::FrontendOptions{/* retainFullTypeGraphs: */ true, /* forAutocomplete: */ true});
+                // TODO: do we need indexing for non-autocomplete?
+                // frontend.check(moduleName);
+            }
+        }
+    }
+}
+
 bool WorkspaceFolder::updateSourceMap()
 {
     auto sourcemapPath = rootUri.fsPath() / "sourcemap.json";
@@ -120,7 +145,12 @@ bool WorkspaceFolder::updateSourceMap()
         // Recreate instance types
         auto config = client->getConfiguration(rootUri);
         instanceTypes.clear();
+        // NOTE: expressive types is always enabled for autocomplete, regardless of the setting!
+        // We pass the same setting even when we are registering autocomplete globals since
+        // the setting impacts what happens to diagnostics (as both calls overwrite frontend.prepareModuleScope)
         types::registerInstanceTypes(frontend, frontend.globals, instanceTypes, fileResolver,
+            /* expressiveTypes: */ config.diagnostics.strictDatamodelTypes);
+        types::registerInstanceTypes(frontend, frontend.globalsForAutocomplete, instanceTypes, fileResolver,
             /* expressiveTypes: */ config.diagnostics.strictDatamodelTypes);
 
         return true;
@@ -197,4 +227,7 @@ void WorkspaceFolder::setupWithConfiguration(const ClientConfiguration& configur
                 lsp::MessageType::Error, "Failed to load sourcemap.json for workspace '" + name + "'. Instance information will not be available");
         }
     }
+
+    if (configuration.index.enabled)
+        indexFiles(configuration);
 }

@@ -79,11 +79,42 @@ struct ClientHoverConfiguration
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     ClientHoverConfiguration, enabled, showTableKinds, multilineFunctionDefinitions, strictDatamodelTypes);
 
+enum struct ImportRequireStyle
+{
+    Auto,
+    AlwaysRelative,
+    AlwaysAbsolute,
+};
+NLOHMANN_JSON_SERIALIZE_ENUM(ImportRequireStyle, {
+                                                     {ImportRequireStyle::Auto, "auto"},
+                                                     {ImportRequireStyle::AlwaysRelative, "alwaysRelative"},
+                                                     {ImportRequireStyle::AlwaysAbsolute, "alwaysAbsolute"},
+                                                 })
+
+struct ClientCompletionImportsConfiguration
+{
+    /// Whether we should suggest automatic imports in completions
+    bool enabled = false;
+    /// Whether services should be suggested in auto-import
+    bool suggestServices = true;
+    /// Whether requires should be suggested in auto-import
+    bool suggestRequires = true;
+    /// The style of the auto-imported require
+    ImportRequireStyle requireStyle = ImportRequireStyle::Auto;
+    /// Whether services and requires should be separated by an empty line
+    bool separateGroupsWithLine = false;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ClientCompletionImportsConfiguration, enabled, suggestServices, suggestRequires, requireStyle, separateGroupsWithLine);
+
 struct ClientCompletionConfiguration
 {
     bool enabled = true;
     /// Whether we should suggest automatic imports in completions
+    /// DEPRECATED: USE `completion.imports.enabled` INSTEAD
     bool suggestImports = false;
+    /// Automatic imports configuration
+    ClientCompletionImportsConfiguration imports{};
     /// Automatically add parentheses to a function call
     bool addParentheses = true;
     /// If parentheses are added, include a $0 tabstop after the parentheses
@@ -93,7 +124,7 @@ struct ClientCompletionConfiguration
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
-    ClientCompletionConfiguration, enabled, suggestImports, addParentheses, addTabstopAfterParentheses, fillCallArguments);
+    ClientCompletionConfiguration, enabled, suggestImports, imports, addParentheses, addTabstopAfterParentheses, fillCallArguments);
 
 struct ClientSignatureHelpConfiguration
 {
@@ -119,6 +150,15 @@ struct ClientRequireConfiguration
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ClientRequireConfiguration, mode);
 
+struct ClientIndexConfiguration
+{
+    /// Whether the whole workspace should be indexed. If disabled, only limited support is
+    // available for features such as "Find All References" and "Rename"
+    bool enabled = true;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ClientIndexConfiguration, enabled);
+
 
 // These are the passed configuration options by the client, prefixed with `luau-lsp.`
 // Here we also define the default settings
@@ -135,6 +175,7 @@ struct ClientConfiguration
     ClientCompletionConfiguration completion{};
     ClientSignatureHelpConfiguration signatureHelp{};
     ClientRequireConfiguration require{};
+    ClientIndexConfiguration index{};
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
-    ClientConfiguration, autocompleteEnd, ignoreGlobs, sourcemap, diagnostics, types, inlayHints, hover, completion, signatureHelp, require);
+    ClientConfiguration, autocompleteEnd, ignoreGlobs, sourcemap, diagnostics, types, inlayHints, hover, completion, signatureHelp, require, index);

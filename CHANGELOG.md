@@ -6,14 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.19.2]
+
+### Fixed
+
+- Fixed forced expressive types in diagnostics
+- Added option `--no-strict-dm-types` for analyze CLI to disable strict datamodel types and its associated false positives
+
+## [1.19.1] - 2023-04-27
+
+### Fixed
+
+- Fixed regression in DataModel item autocompletion
+
+## [1.19.0] - 2023-04-26
+
+### Deprecated
+
+- Deprecated config `luau-lsp.completion.suggestImports`: use `luau-lsp.completion.imports.enabled` instead
+
+### Added
+
+- Added setting `luau-lsp.index.enabled` which will index the whole workspace into memory. If disabled, only limited support for Find All References and rename is possible
+- Added support for finding all references of both local and exported types. For exported types, `luau-lsp.index.enabled` must be enabled for full support.
+- Added support for renaming table properties across files. If `luau-lsp.index.enabled` is disabled, this feature is disabled for correctness reasons.
+- Added support for renaming types (both local and exported). If `luau-lsp.index.enabled` is disabled, this exported types renaming is disabled for correctness reasons.
+- Added more settings to auto-importing:
+  - `luau-lsp.completion.imports.enabled`: replaces `luau-lsp.completion.suggestImports` (default: false)
+  - `luau-lsp.completion.imports.suggestServices`: whether GetService imports are included in suggestions (default: true)
+  - `luau-lsp.completion.imports.suggestRequires`: whether auto-requires are included in suggestions (default: true)
+  - `luau-lsp.completion.imports.requireStyle`: the style of require format (default: "auto")
+  - `luau-lsp.completion.imports.separateGroupsWithLine`: whether an empty line should be added in between services and requires (default: false)
+
 ### Changed
 
-- Sync to upstream Luau 0.572
+- Sync to upstream Luau 0.573
+- Improved find all references system for tables. We can now track all references to table and its properties across files. This requires `luau-lsp.index.enabled` to be enabled for full support.
 
 ### Fixed
 
 - Fixed pull diagnostics result not following spec
 - Fixed errors when file has shebang `#!` present at top of file
+- Fixed string require autocompletion failing when autocomplete triggered on an incomplete string, e.g. `require("Constants/Te|")`.
+  Originally, nothing would autocomplete. Now, everything inside of the Constants folder will still autocomplete as usual (filtered for "Te").
 
 ## [1.18.1] - 2023-03-23
 

@@ -62,95 +62,182 @@ Luau::TypeId getSourcemapType(const Luau::GlobalTypes& globals, Luau::TypeArena&
     if (node->tys.find(&globals) != node->tys.end())
         return node->tys.at(&globals);
 
-    Luau::LazyType ltv;
-    ltv.thunk = [&globals, &arena, node]()
-    {
-        // Handle if the node is no longer valid
-        if (!node)
-            return globals.builtinTypes->anyType;
-
-        auto instanceTy = globals.globalScope->lookupType("Instance");
-        if (!instanceTy)
-            return globals.builtinTypes->anyType;
-
-        // Look up the base class instance
-        Luau::TypeId baseTypeId = nullptr;
-        if (auto foundId = getTypeIdForClass(globals.globalScope, node->className))
-            baseTypeId = *foundId;
-        else
-            return globals.builtinTypes->anyType;
-        LUAU_ASSERT(baseTypeId);
-
-        // Point the metatable to the metatable of "Instance" so that we allow equality
-        std::optional<Luau::TypeId> instanceMetaIdentity;
-        if (auto* ctv = Luau::get<Luau::ClassType>(instanceTy->type))
-            instanceMetaIdentity = ctv->metatable;
-
-        // Create the ClassType representing the instance
-        std::string typeName = getTypeName(baseTypeId).value_or(node->name);
-        Luau::ClassType ctv{typeName, {}, baseTypeId, instanceMetaIdentity, {}, {}, "@roblox"};
-        auto typeId = arena.addType(std::move(ctv));
-
-        // Attach Parent and Children info
-        // Get the mutable version of the type var
-        if (auto* ctv = Luau::getMutable<Luau::ClassType>(typeId))
+    Luau::LazyType ltv(
+        // TODO: clip when removed
+        [&globals, &arena, node]()
         {
-            if (auto parentNode = node->parent.lock())
-                ctv->props["Parent"] = Luau::makeProperty(getSourcemapType(globals, arena, parentNode));
+            // Handle if the node is no longer valid
+            if (!node)
+                return globals.builtinTypes->anyType;
 
-            // Add children as properties
-            for (const auto& child : node->children)
-                ctv->props[child->name] = Luau::makeProperty(getSourcemapType(globals, arena, child));
+            auto instanceTy = globals.globalScope->lookupType("Instance");
+            if (!instanceTy)
+                return globals.builtinTypes->anyType;
 
-            // Add FindFirstAncestor and FindFirstChild
-            if (auto instanceType = getTypeIdForClass(globals.globalScope, "Instance"))
+            // Look up the base class instance
+            Luau::TypeId baseTypeId = nullptr;
+            if (auto foundId = getTypeIdForClass(globals.globalScope, node->className))
+                baseTypeId = *foundId;
+            else
+                return globals.builtinTypes->anyType;
+            LUAU_ASSERT(baseTypeId);
+
+            // Point the metatable to the metatable of "Instance" so that we allow equality
+            std::optional<Luau::TypeId> instanceMetaIdentity;
+            if (auto* ctv = Luau::get<Luau::ClassType>(instanceTy->type))
+                instanceMetaIdentity = ctv->metatable;
+
+            // Create the ClassType representing the instance
+            std::string typeName = getTypeName(baseTypeId).value_or(node->name);
+            Luau::ClassType ctv{typeName, {}, baseTypeId, instanceMetaIdentity, {}, {}, "@roblox"};
+            auto typeId = arena.addType(std::move(ctv));
+
+            // Attach Parent and Children info
+            // Get the mutable version of the type var
+            if (auto* ctv = Luau::getMutable<Luau::ClassType>(typeId))
             {
-                auto findFirstAncestorFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
+                if (auto parentNode = node->parent.lock())
+                    ctv->props["Parent"] = Luau::makeProperty(getSourcemapType(globals, arena, parentNode));
 
-                Luau::attachMagicFunction(findFirstAncestorFunction,
-                    [&arena, &globals, node](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
-                        const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
-                    {
-                        if (expr.args.size < 1)
-                            return std::nullopt;
+                // Add children as properties
+                for (const auto& child : node->children)
+                    ctv->props[child->name] = Luau::makeProperty(getSourcemapType(globals, arena, child));
 
-                        auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
-                        if (!str)
-                            return std::nullopt;
+                // Add FindFirstAncestor and FindFirstChild
+                if (auto instanceType = getTypeIdForClass(globals.globalScope, "Instance"))
+                {
+                    auto findFirstAncestorFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
 
-                        // This is a O(n) search, not great!
-                        if (auto ancestor = node->findAncestor(std::string(str->value.data, str->value.size)))
+                    Luau::attachMagicFunction(findFirstAncestorFunction,
+                        [&arena, &globals, node](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
+                            const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
                         {
-                            return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *ancestor)})};
-                        }
+                            if (expr.args.size < 1)
+                                return std::nullopt;
 
-                        return std::nullopt;
-                    });
-                ctv->props["FindFirstAncestor"] = Luau::makeProperty(findFirstAncestorFunction, "@roblox/globaltype/Instance.FindFirstAncestor");
+                            auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
+                            if (!str)
+                                return std::nullopt;
 
-                auto findFirstChildFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
-                Luau::attachMagicFunction(findFirstChildFunction,
-                    [node, &arena, &globals](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
-                        const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
-                    {
-                        if (expr.args.size < 1)
+                            // This is a O(n) search, not great!
+                            if (auto ancestor = node->findAncestor(std::string(str->value.data, str->value.size)))
+                            {
+                                return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *ancestor)})};
+                            }
+
                             return std::nullopt;
+                        });
+                    ctv->props["FindFirstAncestor"] = Luau::makeProperty(findFirstAncestorFunction, "@roblox/globaltype/Instance.FindFirstAncestor");
 
-                        auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
-                        if (!str)
+                    auto findFirstChildFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
+                    Luau::attachMagicFunction(findFirstChildFunction,
+                        [node, &arena, &globals](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
+                            const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
+                        {
+                            if (expr.args.size < 1)
+                                return std::nullopt;
+
+                            auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
+                            if (!str)
+                                return std::nullopt;
+
+                            if (auto child = node->findChild(std::string(str->value.data, str->value.size)))
+                                return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *child)})};
+
                             return std::nullopt;
-
-                        if (auto child = node->findChild(std::string(str->value.data, str->value.size)))
-                            return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *child)})};
-
-                        return std::nullopt;
-                    });
-                ctv->props["FindFirstChild"] = Luau::makeProperty(findFirstChildFunction, "@roblox/globaltype/Instance.FindFirstChild");
+                        });
+                    ctv->props["FindFirstChild"] = Luau::makeProperty(findFirstChildFunction, "@roblox/globaltype/Instance.FindFirstChild");
+                }
             }
-        }
-        return typeId;
-    };
+            return typeId;
+        },
+        [&globals, &arena, node](Luau::LazyType&)
+        {
+            // Handle if the node is no longer valid
+            if (!node)
+                return globals.builtinTypes->anyType;
 
+            auto instanceTy = globals.globalScope->lookupType("Instance");
+            if (!instanceTy)
+                return globals.builtinTypes->anyType;
+
+            // Look up the base class instance
+            Luau::TypeId baseTypeId = nullptr;
+            if (auto foundId = getTypeIdForClass(globals.globalScope, node->className))
+                baseTypeId = *foundId;
+            else
+                return globals.builtinTypes->anyType;
+            LUAU_ASSERT(baseTypeId);
+
+            // Point the metatable to the metatable of "Instance" so that we allow equality
+            std::optional<Luau::TypeId> instanceMetaIdentity;
+            if (auto* ctv = Luau::get<Luau::ClassType>(instanceTy->type))
+                instanceMetaIdentity = ctv->metatable;
+
+            // Create the ClassType representing the instance
+            std::string typeName = getTypeName(baseTypeId).value_or(node->name);
+            Luau::ClassType ctv{typeName, {}, baseTypeId, instanceMetaIdentity, {}, {}, "@roblox"};
+            auto typeId = arena.addType(std::move(ctv));
+
+            // Attach Parent and Children info
+            // Get the mutable version of the type var
+            if (auto* ctv = Luau::getMutable<Luau::ClassType>(typeId))
+            {
+                if (auto parentNode = node->parent.lock())
+                    ctv->props["Parent"] = Luau::makeProperty(getSourcemapType(globals, arena, parentNode));
+
+                // Add children as properties
+                for (const auto& child : node->children)
+                    ctv->props[child->name] = Luau::makeProperty(getSourcemapType(globals, arena, child));
+
+                // Add FindFirstAncestor and FindFirstChild
+                if (auto instanceType = getTypeIdForClass(globals.globalScope, "Instance"))
+                {
+                    auto findFirstAncestorFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
+
+                    Luau::attachMagicFunction(findFirstAncestorFunction,
+                        [&arena, &globals, node](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
+                            const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
+                        {
+                            if (expr.args.size < 1)
+                                return std::nullopt;
+
+                            auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
+                            if (!str)
+                                return std::nullopt;
+
+                            // This is a O(n) search, not great!
+                            if (auto ancestor = node->findAncestor(std::string(str->value.data, str->value.size)))
+                            {
+                                return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *ancestor)})};
+                            }
+
+                            return std::nullopt;
+                        });
+                    ctv->props["FindFirstAncestor"] = Luau::makeProperty(findFirstAncestorFunction, "@roblox/globaltype/Instance.FindFirstAncestor");
+
+                    auto findFirstChildFunction = Luau::makeFunction(arena, typeId, {globals.builtinTypes->stringType}, {"name"}, {*instanceType});
+                    Luau::attachMagicFunction(findFirstChildFunction,
+                        [node, &arena, &globals](Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr,
+                            const Luau::WithPredicate<Luau::TypePackId>& withPredicate) -> std::optional<Luau::WithPredicate<Luau::TypePackId>>
+                        {
+                            if (expr.args.size < 1)
+                                return std::nullopt;
+
+                            auto str = expr.args.data[0]->as<Luau::AstExprConstantString>();
+                            if (!str)
+                                return std::nullopt;
+
+                            if (auto child = node->findChild(std::string(str->value.data, str->value.size)))
+                                return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({getSourcemapType(globals, arena, *child)})};
+
+                            return std::nullopt;
+                        });
+                    ctv->props["FindFirstChild"] = Luau::makeProperty(findFirstChildFunction, "@roblox/globaltype/Instance.FindFirstChild");
+                }
+            }
+            return typeId;
+        });
     auto ty = arena.addType(std::move(ltv));
     node->tys.insert_or_assign(&globals, ty);
 
@@ -394,8 +481,11 @@ void registerInstanceTypes(Luau::Frontend& frontend, const Luau::GlobalTypes& gl
     }
 
     // Prepare module scope so that we can dynamically reassign the type of "script" to retrieve instance info
-    frontend.prepareModuleScope = [&, expressiveTypes](const Luau::ModuleName& name, const Luau::ScopePtr& scope, bool forAutocomplete)
+    frontend.prepareModuleScope = [&frontend, &fileResolver, &arena, expressiveTypes](
+                                      const Luau::ModuleName& name, const Luau::ScopePtr& scope, bool forAutocomplete)
     {
+        Luau::GlobalTypes& globals = forAutocomplete ? frontend.globalsForAutocomplete : frontend.globals;
+
         // TODO: we hope to remove these in future!
         if (!expressiveTypes && !forAutocomplete)
         {
@@ -404,12 +494,10 @@ void registerInstanceTypes(Luau::Frontend& frontend, const Luau::GlobalTypes& gl
             scope->bindings[Luau::AstName("game")] = Luau::Binding{globals.builtinTypes->anyType};
         }
 
-        if (auto node =
-                fileResolver.isVirtualPath(name) ? fileResolver.getSourceNodeFromVirtualPath(name) : fileResolver.getSourceNodeFromRealPath(name))
-        {
-            if (expressiveTypes)
+        if (expressiveTypes || forAutocomplete)
+            if (auto node =
+                    fileResolver.isVirtualPath(name) ? fileResolver.getSourceNodeFromVirtualPath(name) : fileResolver.getSourceNodeFromRealPath(name))
                 scope->bindings[Luau::AstName("script")] = Luau::Binding{getSourcemapType(globals, arena, node.value())};
-        }
     };
 }
 
@@ -660,6 +748,68 @@ std::optional<Luau::AstExpr*> matchRequire(const Luau::AstExprCall& call)
 }
 } // namespace types
 
+struct FindNodeType : public Luau::AstVisitor
+{
+    const Luau::Position pos;
+    const Luau::Position documentEnd;
+    Luau::AstNode* best = nullptr;
+    bool closed = false;
+
+    explicit FindNodeType(Luau::Position pos, Luau::Position documentEnd, bool closed)
+        : pos(pos)
+        , documentEnd(documentEnd)
+        , closed(closed)
+    {
+    }
+
+    bool isCloserMatch(Luau::Location& newLocation)
+    {
+        return (closed ? newLocation.containsClosed(pos) : newLocation.contains(pos)) && (!best || best->location.encloses(newLocation));
+    }
+
+    bool visit(Luau::AstNode* node) override
+    {
+        if (isCloserMatch(node->location))
+        {
+            best = node;
+            return true;
+        }
+
+        // Edge case: If we ask for the node at the position that is the very end of the document
+        // return the innermost AST element that ends at that position.
+
+        if (node->location.end == documentEnd && pos >= documentEnd)
+        {
+            best = node;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool visit(class Luau::AstType* node) override
+    {
+        return visit(static_cast<Luau::AstNode*>(node));
+    }
+
+    bool visit(Luau::AstStatBlock* block) override
+    {
+        visit(static_cast<Luau::AstNode*>(block));
+
+        for (Luau::AstStat* stat : block->body)
+        {
+            if (stat->location.end < pos)
+                continue;
+            if (stat->location.begin > pos)
+                break;
+
+            stat->visit(this);
+        }
+
+        return false;
+    }
+};
+
 Luau::AstNode* findNodeOrTypeAtPosition(const Luau::SourceModule& source, Luau::Position pos)
 {
     const Luau::Position end = source.root->location.end;
@@ -669,7 +819,21 @@ Luau::AstNode* findNodeOrTypeAtPosition(const Luau::SourceModule& source, Luau::
     if (pos > end)
         pos = end;
 
-    FindNodeType findNode{pos, end};
+    FindNodeType findNode{pos, end, /* closed: */ false};
+    findNode.visit(source.root);
+    return findNode.best;
+}
+
+Luau::AstNode* findNodeOrTypeAtPositionClosed(const Luau::SourceModule& source, Luau::Position pos)
+{
+    const Luau::Position end = source.root->location.end;
+    if (pos < source.root->location.begin)
+        return source.root;
+
+    if (pos > end)
+        pos = end;
+
+    FindNodeType findNode{pos, end, /* closed: */ true};
     findNode.visit(source.root);
     return findNode.best;
 }
@@ -1028,6 +1192,39 @@ struct FindSymbolReferences : public Luau::AstVisitor
 std::vector<Luau::Location> findSymbolReferences(const Luau::SourceModule& source, Luau::Symbol symbol)
 {
     FindSymbolReferences finder(symbol);
+    source.root->visit(&finder);
+    return std::move(finder.result);
+}
+
+struct FindTypeReferences : public Luau::AstVisitor
+{
+    const Luau::Name& typeName;
+    std::optional<const Luau::Name> prefix;
+    std::vector<Luau::Location> result{};
+
+    explicit FindTypeReferences(const Luau::Name& typeName, std::optional<const Luau::Name> prefix)
+        : typeName(typeName)
+        , prefix(prefix)
+    {
+    }
+
+    bool visit(class Luau::AstType* node)
+    {
+        return true;
+    }
+
+    bool visit(class Luau::AstTypeReference* node)
+    {
+        if (node->name.value == typeName && ((!prefix && !node->prefix) || (prefix && node->prefix && node->prefix->value == prefix.value())))
+            result.push_back(node->nameLocation);
+
+        return true;
+    }
+};
+
+std::vector<Luau::Location> findTypeReferences(const Luau::SourceModule& source, const Luau::Name& typeName, std::optional<const Luau::Name> prefix)
+{
+    FindTypeReferences finder(typeName, prefix);
     source.root->visit(&finder);
     return std::move(finder.result);
 }
