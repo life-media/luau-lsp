@@ -188,6 +188,8 @@ std::filesystem::path WorkspaceFileResolver::getRequireBasePath(std::optional<Lu
     {
     case RequireModeConfig::RelativeToWorkspaceRoot:
         return rootUri.fsPath();
+    case RequireModeConfig::RelativeToWorkspaceSrc:
+        return rootUri.fsPath() / "src";
     case RequireModeConfig::RelativeToFile:
     {
         if (fileModuleName.has_value())

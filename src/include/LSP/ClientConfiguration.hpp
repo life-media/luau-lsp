@@ -104,10 +104,12 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ClientSignatureHelpConfiguration
 
 enum struct RequireModeConfig
 {
+    RelativeToWorkspaceSrc,
     RelativeToWorkspaceRoot,
     RelativeToFile,
 };
 NLOHMANN_JSON_SERIALIZE_ENUM(RequireModeConfig, {
+                                                    {RequireModeConfig::RelativeToWorkspaceSrc, "relativeToWorkspaceSrc"},
                                                     {RequireModeConfig::RelativeToWorkspaceRoot, "relativeToWorkspaceRoot"},
                                                     {RequireModeConfig::RelativeToFile, "relativeToFile"},
                                                 });

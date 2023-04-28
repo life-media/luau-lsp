@@ -329,6 +329,7 @@
           "type": "string",
           "default": "relativeToWorkspaceRoot",
           "enum": [
+            "relativeToWorkspaceSrc",
             "relativeToWorkspaceRoot",
             "relativeToFile"
           ],
@@ -368,7 +369,7 @@
     "ts-loader": "^9.2.8",
     "typescript": "^4.6.4",
     "webpack": "^5.76.0",
-    "webpack-cli": "^4.9.2"
+    "webpack-cli": "^4.10.0"
   },
   "dependencies": {
     "express": "^4.18.1",
