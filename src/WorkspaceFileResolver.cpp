@@ -223,6 +223,43 @@ std::optional<Luau::ModuleInfo> WorkspaceFileResolver::resolveModule(const Luau:
             // fall back to .lua if a module with .luau doesn't exist
             filePath = std::filesystem::weakly_canonical(basePath / (requiredString + ".lua"), ec);
         }
+
+        // We need to shallow scan packages and server packages
+        // We need to only do this if its a single name require OR if the require string goes into the [Shared or Server]/Packages dir
+        std::string requiredPackageName = "";
+        if (requiredString.find('/') == std::string::npos){
+            requiredPackageName = requiredString;
+        } else if ((requiredString.find("Server/Packages/") == 0) || (requiredString.find("Shared/Packages/") == 0))
+        {
+            std::size_t last_slash = requiredString.find_last_of('/');
+            if (last_slash != std::string::npos) {
+                requiredPackageName = requiredString.substr(last_slash + 1);
+            }
+        }
+        
+        if (requiredPackageName != "") {
+            if (ec.value() != 0 || !std::filesystem::exists(filePath))
+            {
+                filePath = std::filesystem::weakly_canonical(basePath / "../Packages/" / (requiredPackageName + ".luau"), ec);
+            }
+            if (ec.value() != 0 || !std::filesystem::exists(filePath))
+            {
+                // fall back to .lua if a module with .luau doesn't exist
+                filePath = std::filesystem::weakly_canonical(basePath / "../Packages/" / (requiredPackageName + ".lua"), ec);
+            }
+            // Now for server packages:
+            if (ec.value() != 0 || !std::filesystem::exists(filePath))
+            {
+                filePath = std::filesystem::weakly_canonical(basePath / "../ServerPackages/" / (requiredPackageName + ".luau"), ec);
+            }
+            if (ec.value() != 0 || !std::filesystem::exists(filePath))
+            {
+                // fall back to .lua if a module with .luau doesn't exist
+                filePath = std::filesystem::weakly_canonical(basePath / "../ServerPackages/" / (requiredPackageName + ".lua"), ec);
+            }
+        }
+        
+
         // If file not found in direct path, search recursively
         if (ec.value() != 0 || !std::filesystem::exists(filePath))
         {
@@ -241,7 +278,6 @@ std::optional<Luau::ModuleInfo> WorkspaceFileResolver::resolveModule(const Luau:
             if (!found)
             {
                 ec = std::make_error_code(std::errc::no_such_file_or_directory);
-                // Handle the file not found case here
             }
         }
 

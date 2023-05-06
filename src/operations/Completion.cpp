@@ -525,16 +525,48 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                     else
                         contentsString = contentsString.substr(0, separator);
 
+                    
+                    auto requireBasePath = fileResolver.getRequireBasePath(moduleName);
+                    auto currentDirectory = requireBasePath / contentsString;
 
-                    auto currentDirectory = fileResolver.getRequireBasePath(moduleName).append(contentsString);
+                    std::filesystem::path packageDir = requireBasePath / "../Packages/";
+                    std::filesystem::path serverPackageDir = requireBasePath / "../ServerPackages/";
 
                     std::filesystem::path pathObj(contentsString);
 
-                    bool contentsHasParent = pathObj.has_parent_path();
+                    bool contentsHasParent = (contentsString != "");
                     
                     Luau::AutocompleteEntryMap result;
                     std::map<std::string, std::ptrdiff_t> depthMap; // Map to store the depth of each entry
                     if (!contentsHasParent){
+                        if (std::filesystem::exists(packageDir)) {
+                            for (const auto& dir_entry : std::filesystem::directory_iterator(packageDir))
+                            {
+                                if (dir_entry.is_regular_file())
+                                {
+                                    std::string fileName = dir_entry.path().filename().generic_string();
+                                    Luau::AutocompleteEntry entry{
+                                        Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                    entry.tags.push_back("File");
+
+                                    result.insert_or_assign(fileName, entry);
+                                }
+                            }
+                        }
+                        if (std::filesystem::exists(serverPackageDir)) {
+                            for (const auto& dir_entry : std::filesystem::directory_iterator(serverPackageDir))
+                            {
+                                if (dir_entry.is_regular_file())
+                                {
+                                    std::string fileName = dir_entry.path().filename().generic_string();
+                                    Luau::AutocompleteEntry entry{
+                                        Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                    entry.tags.push_back("File");
+
+                                    result.insert_or_assign(fileName, entry);
+                                }
+                            }
+                        }
                         for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(currentDirectory))
                         {
                             if (dir_entry.is_regular_file())
@@ -559,7 +591,54 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                                 }
                             }
                         }
+                    } else if ((contentsString == "Server/Packages") && (std::filesystem::exists(serverPackageDir)))
+                    {
+                        for (const auto& dir_entry : std::filesystem::directory_iterator(serverPackageDir))
+                        {
+                            if (dir_entry.is_regular_file())
+                            {
+                                std::string fileName = dir_entry.path().filename().generic_string();
+                                Luau::AutocompleteEntry entry{
+                                    Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                entry.tags.push_back("File");
+
+                                result.insert_or_assign(fileName, entry);
+                            }
+                        }
+                        return result;
+                    } else if ((contentsString == "Shared/Packages") && (std::filesystem::exists(packageDir))){
+                        for (const auto& dir_entry : std::filesystem::directory_iterator(packageDir))
+                        {
+                            if (dir_entry.is_regular_file())
+                            {
+                                std::string fileName = dir_entry.path().filename().generic_string();
+                                Luau::AutocompleteEntry entry{
+                                    Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                                entry.tags.push_back("File");
+
+                                result.insert_or_assign(fileName, entry);
+                            }
+                        }
+                        return result;
+                    } else if ((contentsString == "Shared") && (std::filesystem::exists(packageDir)))
+                    {
+                        std::string fileName = "Packages";
+                            Luau::AutocompleteEntry entry{
+                                Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                            entry.tags.push_back("Directory");
+
+                            result.insert_or_assign(fileName, entry);
+                    }  else if ((contentsString == "Server") && (std::filesystem::exists(serverPackageDir)))
+                    {
+                        std::string fileName = "Packages";
+                            Luau::AutocompleteEntry entry{
+                                Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                            entry.tags.push_back("Directory");
+
+                            result.insert_or_assign(fileName, entry);
                     }
+
+                    
                     
 
 
@@ -577,13 +656,13 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                     }
 
                     // Add in ".." support
-                    if (currentDirectory.has_parent_path())
-                    {
-                        Luau::AutocompleteEntry dotdotEntry{
-                            Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
-                        dotdotEntry.tags.push_back("Directory");
-                        result.insert_or_assign("..", dotdotEntry);
-                    }
+                    // if (currentDirectory.has_parent_path())
+                    // {
+                    //     Luau::AutocompleteEntry dotdotEntry{
+                    //         Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                    //     dotdotEntry.tags.push_back("Directory");
+                    //     result.insert_or_assign("..", dotdotEntry);
+                    // }
 
                     return result;
                 }
