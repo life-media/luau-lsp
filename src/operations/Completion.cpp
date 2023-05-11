@@ -171,7 +171,7 @@ static std::vector<std::string> getServiceNames(const Luau::ScopePtr& scope)
         {
             if (auto getService = Luau::lookupClassProp(ctv, "GetService"))
             {
-                if (auto itv = Luau::get<Luau::IntersectionType>(getService->type))
+                if (auto itv = Luau::get<Luau::IntersectionType>(getService->type()))
                 {
                     for (auto part : itv->parts)
                     {
@@ -511,6 +511,17 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                 if (!contents.has_value())
                     return std::nullopt;
 
+                Luau::AutocompleteEntryMap result;
+
+                // Populate with custom file aliases
+                for (const auto& [aliasName, _] : config.require.fileAliases)
+                {
+                    Luau::AutocompleteEntry entry{
+                        Luau::AutocompleteEntryKind::String, frontend.builtinTypes->stringType, false, false, Luau::TypeCorrectKind::Correct};
+                    entry.tags.push_back("File");
+                    result.insert_or_assign(aliasName, entry);
+                }
+
                 try
                 {
                     auto contentsString = contents.value();
@@ -668,8 +679,9 @@ std::vector<lsp::CompletionItem> WorkspaceFolder::completion(const lsp::Completi
                 }
                 catch (std::exception&)
                 {
-                    return std::nullopt;
                 }
+
+                return result;
             }
             else if (tag == "PrioritiseCommonServices")
             {

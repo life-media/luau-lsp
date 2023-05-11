@@ -47,6 +47,19 @@ const TextDocument* WorkspaceFileResolver::getTextDocumentFromModuleName(const L
     return nullptr;
 }
 
+TextDocumentPtr WorkspaceFileResolver::getOrCreateTextDocumentFromModuleName(const Luau::ModuleName& name)
+{
+    if (auto document = getTextDocumentFromModuleName(name))
+        return {document, false};
+
+    if (auto filePath = resolveToRealPath(name))
+        if (auto source = readSource(name))
+            return {new TextDocument{Uri::file(*filePath), "luau", 0, source->source}, true};
+
+
+    return {nullptr, false};
+}
+
 std::optional<SourceNodePtr> WorkspaceFileResolver::getSourceNodeFromVirtualPath(const Luau::ModuleName& name) const
 {
     if (virtualPathsToSourceNodes.find(name) == virtualPathsToSourceNodes.end())
@@ -213,8 +226,20 @@ std::optional<Luau::ModuleInfo> WorkspaceFileResolver::resolveModule(const Luau:
     // Handle require("path") for compatibility
     if (auto* expr = node->as<Luau::AstExprConstantString>())
     {
-        std::filesystem::path basePath = getRequireBasePath(context ? std::optional(context->name) : std::nullopt);
         std::string requiredString(expr->value.data, expr->value.size);
+
+        // Check for custom require overrides
+        if (client)
+        {
+            auto config = client->getConfiguration(rootUri);
+            if (auto it = config.require.fileAliases.find(requiredString); it != config.require.fileAliases.end())
+            {
+                auto filePath = it->second;
+                return Luau::ModuleInfo{filePath};
+            }
+        }
+
+        std::filesystem::path basePath = getRequireBasePath(context ? std::optional(context->name) : std::nullopt);
 
         std::error_code ec;
         auto filePath = std::filesystem::weakly_canonical(basePath / (requiredString + ".luau"), ec);

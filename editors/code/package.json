@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/JohnnyMorganz/luau-lsp/issues"
   },
-  "version": "1.19.2",
+  "version": "1.20.2",
   "engines": {
     "vscode": "^1.67.0"
   },
@@ -378,6 +378,15 @@
             "String requires are interpreted relative to the root of the workspace",
             "String requires are interpreted relative to the current file"
           ]
+        },
+        "luau-lsp.require.fileAliases": {
+          "markdownDescription": "A mapping of custom require string aliases to file paths",
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "scope": "resource"
         },
         "luau-lsp.index.enabled": {
           "type": "boolean",

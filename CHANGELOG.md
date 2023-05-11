@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.20.2] - 2023-05-10
+
+### Fixed
+
+- Fixed internal error for LazyType unwrapping
+
+## [1.20.1] - 2023-05-09
+
+### Fixed
+
+- Fixed bug in semantic tokens system causing language server crashes
+
+## [1.20.0] - 2023-05-09
+
+### Added
+
+- Added support for workspace symbols to resolve symbols across the whole workspace. In VSCode, you can open this using `Ctrl + T`
+- Added configuration option `luau-lsp.require.fileAliases` to statically provide custom mappings from string requires to a file path.
+  For example, adding `@example/constants` mapping to `C:/fakepath/constants.luau` will automatically resolve `require("@example/constants")`
+- Added support for Folding Ranges. The language server now signals the following foldable ranges in a document:
+  - Whole blocks, such as `do .. end`, `for - do .. end` `function() .. end` etc.
+  - Tables, and type tables `x = { .. }`
+  - Multiline function calls `foo(..)`
+  - Block comments `--[[ .. ]]`
+  - Custom comment regions denoted using `--#region` and `--#endregion`
+- Added support for Call Hierarchies. Call Hierarchies allow you to view all incoming and outgoing calls of a function:
+  i.e., all functions that call the current function, as well as all functions that the current function calls.
+  This works at multiple levels, displaying ancestor and descendant functions.
+
+### Changed
+
+- Sync to upstream Luau 0.575
+
 ## [1.19.2]
 
 ### Fixed

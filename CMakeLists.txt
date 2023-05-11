@@ -34,6 +34,9 @@ target_sources(Luau.LanguageServer PRIVATE
     src/operations/InlayHints.cpp
     src/operations/SemanticTokens.cpp
     src/operations/CodeAction.cpp
+    src/operations/WorkspaceSymbol.cpp
+    src/operations/FoldingRange.cpp
+    src/operations/CallHierarchy.cpp
 )
 
 target_sources(Luau.LanguageServer.CLI PRIVATE

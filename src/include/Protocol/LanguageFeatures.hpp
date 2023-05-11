@@ -242,4 +242,153 @@ NLOHMANN_DEFINE_OPTIONAL(ColorPresentation, label, textEdit, additionalTextEdits
 
 using ColorPresentationResult = std::vector<ColorPresentation>;
 
+
+/**
+ * The parameters of a Workspace Symbol Request.
+ */
+struct WorkspaceSymbolParams
+{
+    /**
+     * A query string to filter symbols by. Clients may send an empty
+     * string here to request all symbols.
+     */
+    std::string query;
+};
+NLOHMANN_DEFINE_OPTIONAL(WorkspaceSymbolParams, query);
+
+/**
+ * A special workspace symbol that supports locations without a range
+ *
+ * @since 3.17.0
+ */
+struct WorkspaceSymbol
+{
+    /**
+     * The name of this symbol.
+     */
+    std::string name;
+
+    /**
+     * The kind of this symbol.
+     */
+    SymbolKind kind;
+
+    /**
+     * Tags for this completion item.
+     */
+    std::vector<SymbolTag> tags;
+
+    /**
+     * The name of the symbol containing this symbol. This information is for
+     * user interface purposes (e.g. to render a qualifier in the user interface
+     * if necessary). It can't be used to re-infer a hierarchy for the document
+     * symbols.
+     */
+    std::optional<std::string> containerName;
+
+    /**
+     * The location of this symbol. Whether a server is allowed to
+     * return a location without a range depends on the client
+     * capability `workspace.symbol.resolveSupport`.
+     *
+     * See also `SymbolInformation.location`.
+     */
+    Location location;
+};
+NLOHMANN_DEFINE_OPTIONAL(WorkspaceSymbol, name, kind, tags, containerName, location);
+
+struct CallHierarchyPrepareParams : TextDocumentPositionParams
+{
+};
+
+struct CallHierarchyItem
+{
+    /**
+     * The name of this item.
+     */
+    std::string name;
+
+    /**
+     * The kind of this item.
+     */
+    SymbolKind kind;
+
+    /**
+     * Tags for this item.
+     */
+    std::vector<SymbolTag> tags{};
+
+    /**
+     * More detail for this item, e.g. the signature of a function.
+     */
+    std::optional<std::string> detail;
+
+    /**
+     * The resource identifier of this item.
+     */
+    DocumentUri uri;
+
+    /**
+     * The range enclosing this symbol not including leading/trailing whitespace
+     * but everything else, e.g. comments and code.
+     */
+    Range range;
+
+    /**
+     * The range that should be selected and revealed when this symbol is being
+     * picked, e.g. the name of a function. Must be contained by the
+     * [`range`](#CallHierarchyItem.range).
+     */
+    Range selectionRange;
+
+    /**
+     * A data entry field that is preserved between a call hierarchy prepare and
+     * incoming calls or outgoing calls requests.
+     */
+    LSPAny data = nullptr;
+};
+NLOHMANN_DEFINE_OPTIONAL(CallHierarchyItem, name, kind, tags, detail, uri, range, selectionRange, data);
+
+struct CallHierarchyIncomingCallsParams
+{
+    CallHierarchyItem item;
+};
+NLOHMANN_DEFINE_OPTIONAL(CallHierarchyIncomingCallsParams, item);
+
+struct CallHierarchyIncomingCall
+{
+    /**
+     * The item that makes the call.
+     */
+    CallHierarchyItem from;
+
+    /**
+     * The ranges at which the calls appear. This is relative to the caller
+     * denoted by [`this.from`](#CallHierarchyIncomingCall.from).
+     */
+    std::vector<Range> fromRanges;
+};
+NLOHMANN_DEFINE_OPTIONAL(CallHierarchyIncomingCall, from, fromRanges);
+
+struct CallHierarchyOutgoingCallsParams
+{
+    CallHierarchyItem item;
+};
+NLOHMANN_DEFINE_OPTIONAL(CallHierarchyOutgoingCallsParams, item);
+
+struct CallHierarchyOutgoingCall
+{
+    /**
+     * The item that is called.
+     */
+    CallHierarchyItem to;
+
+    /**
+     * The range at which this item is called. This is the range relative to
+     * the caller, e.g the item passed to `callHierarchy/outgoingCalls` request.
+     */
+    std::vector<Range> fromRanges;
+};
+NLOHMANN_DEFINE_OPTIONAL(CallHierarchyOutgoingCall, to, fromRanges);
+
 } // namespace lsp

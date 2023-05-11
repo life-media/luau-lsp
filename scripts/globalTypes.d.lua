@@ -734,6 +734,8 @@ declare class EnumConnectionError_INTERNAL extends Enum
 	ReplicatorTimeout: EnumConnectionError
 	PlayerRemoved: EnumConnectionError
 	DisconnectOutOfMemoryKeepPlayingLeave: EnumConnectionError
+	DisconnectCollaboratorPermissionRevoked: EnumConnectionError
+	DisconnectCollaboratorUnderage: EnumConnectionError
 	PlacelaunchErrors: EnumConnectionError
 	PlacelaunchDisabled: EnumConnectionError
 	PlacelaunchError: EnumConnectionError
@@ -1951,6 +1953,8 @@ declare class EnumPartType_INTERNAL extends Enum
 	Ball: EnumPartType
 	Block: EnumPartType
 	Cylinder: EnumPartType
+	Wedge: EnumPartType
+	CornerWedge: EnumPartType
 end
 declare class EnumParticleEmitterShape extends EnumItem end
 declare class EnumParticleEmitterShape_INTERNAL extends Enum
@@ -2577,6 +2581,10 @@ declare class EnumStudioScriptEditorColorCategories_INTERNAL extends Enum
 	MenuScrollbarHandle: EnumStudioScriptEditorColorCategories
 	MenuBorder: EnumStudioScriptEditorColorCategories
 	DocViewCodeBackground: EnumStudioScriptEditorColorCategories
+	AICOOverlayText: EnumStudioScriptEditorColorCategories
+	AICOOverlayButtonBackground: EnumStudioScriptEditorColorCategories
+	AICOOverlayButtonBackgroundHover: EnumStudioScriptEditorColorCategories
+	AICOOverlayButtonBackgroundPressed: EnumStudioScriptEditorColorCategories
 end
 declare class EnumStudioScriptEditorColorPresets extends EnumItem end
 declare class EnumStudioScriptEditorColorPresets_INTERNAL extends Enum
@@ -2706,6 +2714,10 @@ declare class EnumStudioStyleGuideColor_INTERNAL extends Enum
 	ScriptFunctionName: EnumStudioStyleGuideColor
 	ScriptTodo: EnumStudioStyleGuideColor
 	ScriptBracket: EnumStudioStyleGuideColor
+	AICOOverlayText: EnumStudioStyleGuideColor
+	AICOOverlayButtonBackground: EnumStudioStyleGuideColor
+	AICOOverlayButtonBackgroundHover: EnumStudioStyleGuideColor
+	AICOOverlayButtonBackgroundPressed: EnumStudioStyleGuideColor
 	AttributeCog: EnumStudioStyleGuideColor
 end
 declare class EnumStudioStyleGuideModifier extends EnumItem end
@@ -3163,6 +3175,12 @@ declare class EnumWaterForce_INTERNAL extends Enum
 	Strong: EnumWaterForce
 	Max: EnumWaterForce
 end
+declare class EnumWeldConstraintPreserve extends EnumItem end
+declare class EnumWeldConstraintPreserve_INTERNAL extends Enum
+	All: EnumWeldConstraintPreserve
+	None: EnumWeldConstraintPreserve
+	Touching: EnumWeldConstraintPreserve
+end
 declare class EnumWrapLayerAutoSkin extends EnumItem end
 declare class EnumWrapLayerAutoSkin_INTERNAL extends Enum
 	Disabled: EnumWrapLayerAutoSkin
@@ -3537,6 +3555,7 @@ type ENUM_LIST = {
 	VolumetricAudio: EnumVolumetricAudio_INTERNAL,
 	WaterDirection: EnumWaterDirection_INTERNAL,
 	WaterForce: EnumWaterForce_INTERNAL,
+	WeldConstraintPreserve: EnumWeldConstraintPreserve_INTERNAL,
 	WrapLayerAutoSkin: EnumWrapLayerAutoSkin_INTERNAL,
 	WrapLayerDebugMode: EnumWrapLayerDebugMode_INTERNAL,
 	WrapTargetDebugMode: EnumWrapTargetDebugMode_INTERNAL,
@@ -3924,7 +3943,6 @@ type HopperBin = any
 type Flag = any
 type Status = any
 type PointsService = any
-type Speaker = any
 type DoubleConstrainedValue = any
 type IntConstrainedValue = any
 declare class Instance
@@ -4131,10 +4149,11 @@ declare class AssetImportSession extends Instance
 	function Cancel(self): nil
 	function GetCurrentStatusTable(self): { [any]: any }
 	function GetFilename(self): string
+	function GetImportTree(self): Instance
 	function GetInstance(self, nodeId: number): Instance
-	function GetSettingsRoot(self): Instance
 	function HasAnimation(self): boolean
 	function IsAvatar(self): boolean
+	function IsGltf(self): boolean
 	function IsR15(self): boolean
 	function Upload(self): nil
 	function usesCustomRestPoseLua(self): boolean
@@ -5056,8 +5075,8 @@ declare class AirController extends ControllerBase
 	MoveMaxForce: number
 	OrientationMaxTorque: number
 	OrientationSpeedFactor: number
-	TurningMaxTorque: number
-	TurningSpeedFactor: number
+	TurnMaxTorque: number
+	TurnSpeedFactor: number
 end
 
 declare class ClimbController extends ControllerBase
@@ -6023,6 +6042,7 @@ end
 
 declare class AdGui extends SurfaceGuiBase
 	AdShape: EnumAdShape
+	FallbackImage: Content
 	Status: EnumAdUnitStatus
 end
 
@@ -7057,6 +7077,8 @@ declare class PluginMouse extends Mouse
 end
 
 declare class MouseService extends Instance
+	MouseEnterStudioViewport: RBXScriptSignal<>
+	MouseLeaveStudioViewport: RBXScriptSignal<>
 end
 
 declare class MultipleDocumentInterfaceInstance extends Instance
@@ -7158,7 +7180,6 @@ declare class BasePart extends PVInstance
 	CastShadow: boolean
 	CenterOfMass: Vector3
 	CollisionGroup: string
-	CollisionGroupId: number
 	Color: Color3
 	CurrentPhysicalProperties: PhysicalProperties
 	CustomPhysicalProperties: PhysicalProperties
@@ -8161,6 +8182,7 @@ declare class RenderingTest extends Instance
 	Description: string
 	FieldOfView: number
 	Orientation: Vector3
+	PerfTest: boolean
 	Position: Vector3
 	QualityLevel: number
 	ShouldSkip: boolean
@@ -8341,6 +8363,7 @@ declare class ScriptEditorService extends Instance
 	function DeregisterScriptAnalysisCallback(self, name: string): nil
 	function FindScriptDocument(self, script: LuaSourceContainer): ScriptDocument
 	function ForceReloadSource(self, uri: string, newsrc: string): nil
+	function GetEditorSource(self, script: LuaSourceContainer): string
 	function GetScriptDocuments(self): { Instance }
 	function OpenScriptDocumentAsync(self, script: LuaSourceContainer): any
 	function RegisterAutocompleteCallback(self, name: string, priority: number, callbackFunction: ((...any) -> ...any)): nil
@@ -8363,6 +8386,7 @@ declare class Selection extends Instance
 	SelectionChanged: RBXScriptSignal<>
 	SelectionLineThickness: number
 	SelectionThickness: number
+	ShowActiveInstanceHighlight: boolean
 	ShowBoundingBox: boolean
 	function Add(self, instancesToAdd: { Instance }): nil
 	function ClearTerrainSelectionHack(self): nil
@@ -8378,7 +8402,6 @@ end
 declare class SensorBase extends Instance
 	OnSensorOutputChanged: RBXScriptSignal<>
 	UpdateType: EnumSensorUpdateType
-	function Sense(self): nil
 end
 
 declare class BuoyancySensor extends SensorBase
@@ -8890,8 +8913,6 @@ end
 declare class SpawnerService extends Instance
 end
 
-
-
 declare class StackFrame extends Instance
 	FrameId: number
 	FrameName: string
@@ -9083,8 +9104,8 @@ end
 declare class StudioService extends Instance
 	ActiveScript: Instance
 	AlignDraggedObjects: boolean
+	DEPRECATED_ShowActiveInstanceHighlight: boolean
 	DraggerSolveConstraints: boolean
-	DrawConstraintsOnTop: boolean
 	GridSize: number
 	HoverInstance: Instance
 	InstalledPluginData: string
@@ -9099,7 +9120,6 @@ declare class StudioService extends Instance
 	PromptTransformPluginCheckEnable: RBXScriptSignal<>
 	RotateIncrement: number
 	SaveLocallyAsComplete: RBXScriptSignal<boolean>
-	ShowActiveInstanceHighlight: boolean
 	ShowConstraintDetails: boolean
 	StudioLocaleId: string
 	UseLocalSpace: boolean
@@ -9308,6 +9328,9 @@ declare class ChatInputBarConfiguration extends TextChatConfigurations
 	BackgroundTransparency: number
 	Enabled: boolean
 	FontFace: Font
+	IsFocused: boolean
+	IsFocusedWrite: boolean
+	KeyboardKeyCode: EnumKeyCode
 	PlaceholderColor3: Color3
 	TargetTextChannel: TextChannel
 	TextBox: TextBox
